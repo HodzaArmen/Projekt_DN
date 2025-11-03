@@ -1,0 +1,49 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - python3
+  - python3-pip
+  - python3-venv
+  - docker.io
+  - unzip
+  - curl
+
+runcmd:
+  # Ustvari direktorij
+  - mkdir -p /opt/todo_app
+  - cd /opt/todo_app
+
+  # Namesti Redis container
+  - docker run -d --name redis -p 6379:6379 redis || echo "Redis already running"
+
+  # Virtual environment
+  - python3 -m venv /opt/todo_app/venv
+  - /opt/todo_app/venv/bin/pip install --upgrade pip
+  - /opt/todo_app/venv/bin/pip install Flask==3.0.3 redis==5.0.8
+
+  # Prenesi ToDo.zip iz GitHub raw
+  - curl -L -o /opt/todo_app/ToDo.zip https://github.com/HodzaArmen/Projekt_DN/raw/main/ToDo.zip
+  - unzip -o /opt/todo_app/ToDo.zip -d /opt/todo_app
+
+  # Systemd service
+  - |
+    cat > /etc/systemd/system/todo.service << 'EOF'
+    [Unit]
+    Description=ToDo Flask App
+    After=network.target docker.service
+    Requires=docker.service
+
+    [Service]
+    User=root
+    WorkingDirectory=/opt/todo_app/ToDo
+    ExecStart=/opt/todo_app/venv/bin/python app.py
+    Restart=always
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+
+  - systemctl daemon-reload
+  - systemctl enable todo.service
+  - systemctl start todo.service
