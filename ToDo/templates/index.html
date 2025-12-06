@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="UTF-8">
+  <title>ToDo seznam</title>
+  <style>
+    body { font-family: sans-serif; background: #fafafa; margin: 40px; }
+    h1 { color: #333; }
+    form { margin-bottom: 20px; }
+    input[type=text] { padding: 8px; width: 200px; }
+    button { padding: 8px 12px; }
+    ul { list-style-type: none; padding: 0; }
+    li { margin: 5px 0; }
+    a { color: red; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <h1>📝 ToDo seznam</h1>
+
+  <form action="/add" method="POST">
+    <input type="text" name="task" placeholder="Vnesi nalogo" required>
+    <button type="submit">Dodaj</button>
+  </form>
+
+  <ul>
+    {% for t in tasks %}
+      <li>{{ t.task }} <a href="/delete/{{ t.id }}">❌</a></li>
+    {% endfor %}
+  </ul>
+</body>
+</html>
