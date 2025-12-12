@@ -2,13 +2,17 @@ from flask import Flask, render_template, request, redirect
 import sqlite3
 import redis
 import json
+import os
 
 # Ustvarimo Flask aplikacijo
 app = Flask(__name__)
 
 # Povezava z Redis cache-om (za hitrejši dostop do seznama nalog)
-r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
-
+r = redis.Redis(
+    host=os.getenv("REDIS_HOST", "redis"),
+    port=int(os.getenv("REDIS_PORT", "6379")),
+    decode_responses=True
+)
 # Funkcija za inicializacijo baze (ustvari tabelo, če ne obstaja)
 def init_db():
     conn = sqlite3.connect('tasks.db')  # odpri SQLite bazo
