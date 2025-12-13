@@ -1,0 +1,7 @@
+# Docker Compose override for using pre-built images from GitHub Container Registry
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  web:
+    image: ghcr.io/hodzaarmen/projekt_dn/todo-app:latest
+    build: null  # Disable local build, use pre-built image

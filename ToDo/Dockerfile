@@ -12,8 +12,8 @@ RUN apt-get update \
 # Copy and install Python dependencies with cache mount
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --upgrade pip \
-    && pip install --prefix=/install -r requirements.txt
+    pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # Runtime stage - minimal Alpine image
 FROM python:3.12-alpine AS runtime
