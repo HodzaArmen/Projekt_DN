@@ -30,8 +30,8 @@ jobs:
           context: ./ToDo
           file: ./ToDo/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/todo-web:latest
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/todo-web:latest
+          tags: ghcr.io/hodzaarmen/todo-web:latest
+          cache-from: type=registry,ref=ghcr.io/hodzaarmen/todo-web:latest
           cache-to: type=inline
 
       - name: Build and push worker image
@@ -40,6 +40,6 @@ jobs:
           context: ./ToDo
           file: ./ToDo/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/todo-worker:latest
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/todo-worker:latest
+          tags: ghcr.io/hodzaarmen/todo-worker:latest
+          cache-from: type=registry,ref=ghcr.io/hodzaarmen/todo-worker:latest
           cache-to: type=inline
