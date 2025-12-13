@@ -12,8 +12,8 @@ RUN apt-get update \
 # Copy and install Python dependencies with cache mount
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --prefix=/install -r requirements.txt
+    pip install --upgrade pip \
+    && pip install --prefix=/install -r requirements.txt
 
 # Runtime stage - minimal Alpine image
 FROM python:3.12-alpine AS runtime
@@ -38,8 +38,8 @@ USER appuser
 
 EXPOSE 5000
 
-# Health check
+# Health check with simpler command
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000').read()" || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:5000 || exit 1
 
 CMD ["python", "app.py"]

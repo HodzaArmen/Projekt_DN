@@ -9,91 +9,21 @@ If you want to use pre-built images from GitHub Container Registry instead of bu
 ./generate-ssl-certs.sh
 ```
 
-### 2. Create docker-compose.prod.yml
+### 2. Start Services with Pre-built Image
 
-Create a file `docker-compose.prod.yml`:
+Use the production compose override that's already included in the repository:
 
-```yaml
-services:
-  web:
-    image: ghcr.io/hodzaarmen/projekt_dn/todo-app:latest
-    environment:
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-    depends_on:
-      redis:
-        condition: service_healthy
-    expose:
-      - "5000"
-    volumes:
-      - todo_db:/app/data
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000').read()"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-    command: ["redis-server", "--appendonly", "yes"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
-    restart: unless-stopped
-
-  nginx:
-    image: nginx:alpine
-    depends_on:
-      web:
-        condition: service_healthy
-    ports:
-      - "8080:80"
-      - "443:443"
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-      - certbot_www:/var/www/certbot:ro
-      - certbot_etc:/etc/letsencrypt:ro
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
-    restart: unless-stopped
-
-  certbot:
-    image: certbot/certbot
-    volumes:
-      - certbot_www:/var/www/certbot
-      - certbot_etc:/etc/letsencrypt
-    entrypoint: /bin/sh -c
-    command: >
-      "trap exit TERM;
-       while :; do
-         certbot renew --webroot -w /var/www/certbot --quiet;
-         sleep 12h;
-       done"
-    restart: unless-stopped
-
-volumes:
-  todo_db:
-  redis_data:
-  certbot_www:
-  certbot_etc:
-```
-
-### 3. Start Services
 ```bash
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
+
+Or use the Makefile:
+
+```bash
+make up-prod
+```
+
+This will use the pre-built image from `ghcr.io/hodzaarmen/projekt_dn/todo-app:latest` instead of building locally.
 
 ## Local Development - Building from Source
 
@@ -105,6 +35,12 @@ docker compose -f docker-compose.prod.yml up -d
 ### 2. Build and Start
 ```bash
 docker compose up -d --build
+```
+
+Or use the Makefile:
+
+```bash
+make up
 ```
 
 ### 3. View Logs
