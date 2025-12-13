@@ -1,2 +1,10 @@
 .vagrant/
 tasks.db
+nginx/ssl/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+.env
+.vscode/
+*.log
