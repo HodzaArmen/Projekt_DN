@@ -4,6 +4,9 @@ import redis
 import json
 import os
 
+DB_PATH = "/app/data/tasks.db"
+
+
 # Ustvarimo Flask aplikacijo
 app = Flask(__name__)
 
@@ -15,7 +18,7 @@ r = redis.Redis(
 )
 # Funkcija za inicializacijo baze (ustvari tabelo, če ne obstaja)
 def init_db():
-    conn = sqlite3.connect('tasks.db')  # odpri SQLite bazo
+    conn = sqlite3.connect(DB_PATH)  # odpri SQLite bazo
     c = conn.cursor()
     # ustvari tabelo "tasks" s stolpci id in task, če ne obstaja
     c.execute('''CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY, task TEXT)''')
@@ -32,7 +35,7 @@ def index():
         tasks = json.loads(cached)
     else:
         # Če ni cache-a, jih vzamemo iz SQLite baze
-        conn = sqlite3.connect('tasks.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('SELECT * FROM tasks')
         tasks = [{"id": row[0], "task": row[1]} for row in c.fetchall()]
@@ -46,7 +49,7 @@ def index():
 @app.route('/add', methods=['POST'])
 def add():
     task = request.form['task']  # preberi nalogo iz forme
-    conn = sqlite3.connect('tasks.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     # vstavi novo nalogo v bazo
     c.execute('INSERT INTO tasks (task) VALUES (?)', (task,))
@@ -59,7 +62,7 @@ def add():
 # Brisanje naloge po id
 @app.route('/delete/<int:id>')
 def delete(id):
-    conn = sqlite3.connect('tasks.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     # izbriši nalogo iz baze
     c.execute('DELETE FROM tasks WHERE id=?', (id,))

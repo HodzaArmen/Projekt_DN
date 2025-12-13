@@ -10,9 +10,14 @@ services:
       - redis
     expose:
       - "5000"
+    volumes:
+      - todo_db:/app/data
 
   redis:
     image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
 
   nginx:
     image: nginx:alpine
@@ -40,5 +45,7 @@ services:
        done"
 
 volumes:
+  todo_db:
+  redis_data:
   certbot_www:
   certbot_etc:
