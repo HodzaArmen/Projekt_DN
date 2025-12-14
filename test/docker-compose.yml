@@ -1,7 +1,6 @@
 services:
   web:
-    build:
-      context: ./ToDo
+    image: ghcr.io/hodzaarmen/todo-web:latest
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
