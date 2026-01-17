@@ -4,7 +4,13 @@ metadata:
   name: web
   namespace: todo
 spec:
-  replicas: 1
+  # We run 3 replicas to satisfy HA requirement and to enable zero-downtime rolling updates.
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1 # ensures only one extra pod at a time
+      maxUnavailable: 0 # ensures zero downtime during rollouts
   selector:
     matchLabels:
       app: web
@@ -17,6 +23,7 @@ spec:
         - name: web
           image: todo-web:dev
           imagePullPolicy: IfNotPresent
+          # Matches docker-compose env vars: Flask connects to Redis through the Service name "redis".
           env:
             - name: REDIS_HOST
               value: redis
@@ -24,10 +31,34 @@ spec:
               value: "6379"
           ports:
             - containerPort: 5000
-          volumeMounts:
-            - name: web-data
-              mountPath: /app/data
-      volumes:
-        - name: web-data
-          persistentVolumeClaim:
-            claimName: web-data
+          # Readiness probe: "can this pod receive traffic?"
+          # During deployment, pods won't receive traffic until readiness succeeds.
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 2 # flask starts fast no need to wait 30s
+            periodSeconds: 5 # 15s to mark pod unready if something’s wrong
+            timeoutSeconds: 2 # avoids hanging
+            failureThreshold: 3 # same as periodSeconds
+          # Liveness probe: "is this pod stuck / dead and needs restart?"
+          # We delay more than readiness to avoid restarting during startup.
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 10 # don’t restart during startup/warm-up
+            periodSeconds: 10 # 30s before restart, avoids flapping
+            timeoutSeconds: 2
+            failureThreshold: 3 # same as periodSeconds
+
+          # NOTE about storage:
+          # We intentionally DO NOT mount a PVC for the web service.
+          # because the default StorageClass is typically ReadWriteOnce (RWO),
+          # and sharing a single RWO volume between multiple replicas can fail
+          # or cause data consistency issues.
+          #
+          # Our application state is persisted in Redis (which has its own PVC),
+          # so the web service should remain stateless and horizontally scalable.
+
+          # note in the first iteration we used PVC because I was translating the code directly from docker-compose 

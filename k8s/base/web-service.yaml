@@ -4,9 +4,12 @@ metadata:
   name: web
   namespace: todo
 spec:
+  # Service selects pods with label app=web and load-balances between them.
+  # The Service name also becomes a DNS entry inside the cluster.
   selector:
     app: web
   ports:
+      # Cluster-internal "port 80" mapped to Flask container port 5000.
     - name: http
       port: 80
       targetPort: 5000

@@ -20,8 +20,11 @@ spec:
           ports:
             - containerPort: 6379
           volumeMounts:
+            # Redis persists its database under /data, so we mount a PVC there.
             - name: redis-data
               mountPath: /data
+  # volumeClaimTemplates automatically creates a PVC for each pod replica.
+  # For replica 1, the PVC will be named redis-data-redis-0.
   volumeClaimTemplates:
     - metadata:
         name: redis-data
