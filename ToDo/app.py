@@ -1,11 +1,10 @@
-from flask import jsonify, Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, jsonify
 import sqlite3
 import redis
 import json
 import os
 
 DB_PATH = "/app/data/tasks.db"
-
 
 # Ustvarimo Flask aplikacijo
 app = Flask(__name__)
@@ -16,6 +15,7 @@ r = redis.Redis(
     port=int(os.getenv("REDIS_PORT", "6379")),
     decode_responses=True
 )
+
 # Funkcija za inicializacijo baze (ustvari tabelo, če ne obstaja)
 def init_db():
     conn = sqlite3.connect(DB_PATH)  # odpri SQLite bazo
@@ -25,8 +25,9 @@ def init_db():
     conn.commit()  # shrani spremembe
     conn.close()   # zapri povezavo
 
-# Glavna stran aplikacije
-# Kubernetes health check endpoint
+# ═══════════════════════════════════════════════════════════
+# KUBERNETES HEALTH CHECK ENDPOINT (SAMO 1x!)
+# ═══════════════════════════════════════════════════════════
 @app.route("/health")
 def health():
     """Health check for K8s probes"""
@@ -34,10 +35,21 @@ def health():
         conn = sqlite3.connect(DB_PATH)
         conn.close()
         r.ping()
-        return jsonify({"status": "healthy", "version":  os.getenv("APP_VERSION", "v1.0")}), 200
-    except Exception as e:
-        return jsonify({"status": "unhealthy", "error": str(e)}), 503
+        return jsonify({
+            "status": "healthy", 
+            "version": os.getenv("APP_VERSION", "v1.0"),
+            "database":  "ok",
+            "redis":  "ok"
+        }), 200
+    except Exception as e: 
+        return jsonify({
+            "status": "unhealthy", 
+            "error": str(e)
+        }), 503
 
+# ════════════════════════════════════   ══════════════════════
+# GLAVNA STRAN APLIKACIJE
+# ═══════════════════════════════════════════════════════════
 @app.route('/')
 def index():
     # Poskusimo pridobiti naloge iz Redis cache-a
@@ -50,26 +62,18 @@ def index():
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('SELECT * FROM tasks')
-        tasks = [{"id": row[0], "task": row[1]} for row in c.fetchall()]
+        tasks = [{"id":  row[0], "task": row[1]} for row in c.fetchall()]
         conn.close()
         # shranimo rezultat v Redis cache za 15 sekund
         r.set('tasks', json.dumps(tasks), ex=15)
+    
     # Render HTML strani s seznamom nalog
-    return render_template('index.html', tasks=tasks)
+    version = os.getenv("APP_VERSION", "v1.0")
+    return render_template('index.html', tasks=tasks, version=version)
 
-# Dodajanje nove naloge
-# Kubernetes health check endpoint
-@app.route("/health")
-def health():
-    """Health check for K8s probes"""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.close()
-        r.ping()
-        return jsonify({"status": "healthy", "version":  os.getenv("APP_VERSION", "v1.0")}), 200
-    except Exception as e:
-        return jsonify({"status": "unhealthy", "error": str(e)}), 503
-
+# ═══════════════════════════════════════════════════════════
+# DODAJANJE NOVE NALOGE
+# ═══════════════════════════════════════════════════════════
 @app.route('/add', methods=['POST'])
 def add():
     task = request.form['task']  # preberi nalogo iz forme
@@ -83,19 +87,9 @@ def add():
     r.delete('tasks')
     return redirect('/')  # preusmeri nazaj na glavno stran
 
-# Brisanje naloge po id
-# Kubernetes health check endpoint
-@app.route("/health")
-def health():
-    """Health check for K8s probes"""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.close()
-        r.ping()
-        return jsonify({"status": "healthy", "version":  os.getenv("APP_VERSION", "v1.0")}), 200
-    except Exception as e:
-        return jsonify({"status": "unhealthy", "error": str(e)}), 503
-
+# ═══════════════════════════════════════════════════════════
+# BRISANJE NALOGE PO ID
+# ═══════════════════════════════════════════════════════════
 @app.route('/delete/<int:id>')
 def delete(id):
     conn = sqlite3.connect(DB_PATH)
@@ -108,7 +102,9 @@ def delete(id):
     r.delete('tasks')
     return redirect('/')  # preusmeri nazaj na glavno stran
 
-# Zaženi aplikacijo, če se datoteka zažene neposredno
+# ═══════════════════════════════════════════════════════════
+# ZAŽENI APLIKACIJO
+# ═══════════════════════════════════════════════════════════
 if __name__ == '__main__':
     init_db()  # inicializacija baze
     app.run(host='0.0.0.0', port=5000)  # zaženi na vseh IP-jevih, port 5000

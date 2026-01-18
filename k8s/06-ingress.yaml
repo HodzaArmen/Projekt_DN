@@ -3,62 +3,24 @@ kind:  Ingress
 metadata:  
   name: todo-ingress
   namespace: todo-app
-  
-  # ═════════════════════════════════════════════════════════
-  # ANNOTATIONS: Traefik-specific konfiguracija
-  # 
-  # router.entrypoints: websecure  = Uporabi HTTPS port (443)
-  # router.tls: "true"             = Omogoči TLS
-  # router.tls.certresolver        = Uporabi Let's Encrypt
-  # ═════════════════════════════════════════════════════════
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls:  "true"
     traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
-
 spec:
-  # ═════════════════════════════════════════════════════════
-  # ingressClassName: traefik
-  # ZAKAJ: V clusteru lahko imaš več ingress controllerjev
-  #        (nginx, traefik, haproxy, itd.)
-  #        Ta pove da uporabljamo Traefik
-  # ═════════════════════════════════════════════════════════
   ingressClassName: traefik
-  
-  # ═════════════════════════════════════════════════════════
-  # RULES:   Routing pravila
-  # 
-  # host: todo..nip.io  = Če request pride na to domeno... 
-  # path: /                   = ... in path začne z /... 
-  # backend:  todo-web: 80      = ...forwardaj na todo-web service port 80
-  # ═════════════════════════════   ═══════════════════════════
   rules:
-  - host: todo..nip.io
+  - host: todo.88.200.24.49.nip.io
     http:
       paths:
       - path: /
-        pathType: Prefix
+        pathType:  Prefix
         backend:
           service:
             name: todo-web
-            port: 
+            port:  
               number: 80
-  
-  # ═════════════════════════════════════════════════════════
-  # TLS:   HTTPS konfiguracija
-  # 
-  # hosts:  todo..nip.io  = Certifikat za to domeno
-  # secretName: todo-tls-cert  = K8s Secret kjer se shrani cert
-  # 
-  # KAKO DELA:
-  # 1. Traefik vidi ta Ingress
-  # 2. Traefik kontaktira Let's Encrypt ACME server
-  # 3. Let's Encrypt preveri da nadzirate domeno (HTTP-01 challenge)
-  # 4. Let's Encrypt izda certifikat
-  # 5. Traefik shrani cert v Secret "todo-tls-cert"
-  # 6. Traefik avtomatsko renewa cert vsake 90 dni
-  # ═══════════════════════════  ═════════════════════════════
-  tls: 
+  tls:  
   - hosts:  
-    - todo..nip.io
+    - todo.88.200.24.49.nip.io
     secretName: todo-tls-cert
