@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: todo-app
+spec:
+  replicas: 1  # ZAKAJ 1?  Redis ni HA v tem setupu (za demo je OK)
+  
+  selector:
+    matchLabels:
+      app: redis  # Deployment upravlja pode z label "app=redis"
+  
+  template: 
+    metadata:
+      labels: 
+        app: redis  # Vsak pod dobi ta label
+    
+    spec:
+      containers: 
+      - name: redis
+        image: redis:7-alpine  # Alpine = manjši image
+        
+        ports:
+        - containerPort: 6379  # Redis default port
+          name: redis
+        
+        # ═════════════════════════════════════════════════
+        # VOLUME MOUNT:  Povezava med PVC in pod
+        # ZAKAJ: Redis piše podatke v /data, mi mountamo PVC tam
+        # ═════════════════════════════════════════════════
+        volumeMounts: 
+        - name: redis-data
+          mountPath: /data
+        
+        # ═════════════════════════════════════════════════
+        # RESOURCE LIMITS
+        # ZAKAJ: Preprečimo da Redis požre ves RAM/CPU
+        # 
+        # requests:  "Najmanj toliko želim"
+        # limits: "Nikoli več od tega"
+        # ═════════════════════════════════════════════════
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"  # 50 miliCPU = 0.05 CPU core
+          limits:
+            memory:  "128Mi"
+            cpu:  "100m"
+        
+        # ═════════════════════════════════════════════════
+        # LIVENESS PROBE
+        # KAJ: "Ali je kontejner živ?"
+        # ZAKAJ: Če Redis crashne, K8s ga restartta
+        #        
+        # tcpSocket port 6379: Poskusi connect na Redis port
+        # initialDelaySeconds:  Počakaj 15s po startu preden začneš checkat
+        # periodSeconds: Preveri vsakih 10s
+        # failureThreshold: Po 3 neuspelih poskusih = restart pod
+        # ═════════════════════════════════════════════════
+        livenessProbe:
+          tcpSocket: 
+            port: 6379
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 3
+        
+        # ═════════════════════════════════════════════════
+        # READINESS PROBE
+        # KAJ: "Ali je kontejner pripravljen sprejemat promet?"
+        # ZAKAJ:  Med startupom Redis ni ready - ne pošiljaj mu prometa! 
+        #        
+        # redis-cli ping: Redis CLI command ki vrne "PONG" če je ready
+        # initialDelaySeconds: Manjši kot liveness (Redis se hitro zažene)
+        # ═════════════════════════════════════════════════
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      
+      # ═════════════════════════════════════════════════════
+      # VOLUMES:  Definicija volume-ov
+      # ZAKAJ:  Povežemo PVC (redis-pvc) z volume imenom (redis-data)
+      # ═════════════════════════════════════════════════════
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-pvc
+
+---
+# ═══════════════════════════════════════════════════════════
+# SERVICE: Network endpoint za Redis
+# 
+# KAJ: ClusterIP service - dostopen SAMO znotraj cluster
+# ZAKAJ: Web podi se lahko povežejo na "redis:6379"
+#        selector: app=redis = promet gre na pode z tem labelom
+# ═══════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: todo-app
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP

@@ -1,0 +1,261 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-web
+  namespace: todo-app
+spec:
+  # ═════════════════════════════════════════════════════════
+  # REPLICAS:  3 podi running naenkrat
+  # ZAKAJ:  HIGH AVAILABILITY! 
+  #   - Če 1 pod crashe, drugi 2 še vedno servirata promet
+  #   - Load balancing med 3 podi
+  #   - Omogoča zero-downtime rolling updates
+  # ═════════════════════════════════════════════════════════
+  replicas: 3
+  
+  # ═════════════════════════════════════════════════════════
+  # ROLLING UPDATE STRATEGY
+  # KAJ: Kako posodabljamo pode na novo verzijo
+  # 
+  # maxSurge: 1        = Lahko imamo MAX 1 extra pod (skupaj 4)
+  # maxUnavailable:  0  = NIKOLI ne sme biti manj kot 3 podi!  
+  # 
+  # ZAKAJ TO OMOGOČA ZERO DOWNTIME: 
+  #   1. Ustvari 1 nov pod (total:  4 podi)
+  #   2. Počakaj da je nov pod READY (readiness probe)
+  #   3. Uniči 1 star pod (total: 3 podi)
+  #   4. Repeat za preostale 2 stare pode
+  #   
+  # REZULTAT: Vedno vsaj 3 podi running!  
+  # ═════════════════════════════════════════════════════════
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: 
+      maxSurge: 1
+      maxUnavailable: 0
+  
+  selector:
+    matchLabels: 
+      app: todo-web
+  
+  template:
+    metadata: 
+      labels:
+        app:  todo-web
+        version: v1  # Za blue-green deployments (opcijsko)
+    
+    spec:
+      # ═════════════════════════════════════════════════════
+      # SECURITY CONTEXT (POD level)
+      # ZAKAJ: Defense in depth - security na pod in container level
+      # 
+      # runAsNonRoot: true  = Zavrže če container teče kot root
+      # runAsUser: 1000     = Vsi containerji tečejo kot UID 1000
+      # fsGroup: 1000       = Vsi volumni pripadajo GID 1000
+      # ═════════════════════════════════════════════════════
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      
+      containers:
+      - name: web
+        # ═════════════════════════════════════════════════
+        # IMAGE:  Tvoj Docker image iz GitHub Container Registry
+        # 
+        # imagePullPolicy: Always = Vedno pull najnovejši image
+        # ZAKAJ: Če pushaš nov "latest" tag, K8s ga avtomatsko uporabi
+        # ═════════════════════════════════════════════════
+        image: ghcr.io/hodzaarmen/todo-web:latest
+        imagePullPolicy: Always
+        
+        ports:
+        - containerPort: 5000
+          name: http
+        
+        # ═════════════════════════════════════════════════
+        # ENVIRONMENT VARIABLES
+        # KAJ: Konfiguracija za tvojo Flask app
+        # 
+        # REDIS_HOST: "redis"  = Kubernetes service name! 
+        #   (K8s DNS avtomatsko resolva "redis" na Redis service IP)
+        # 
+        # APP_VERSION:  Prikazuje se v UI (za demo rolling updates)
+        # ═════════════════════════════════════════════════
+        env:
+        - name:  REDIS_HOST
+          value: "redis"
+        - name:  REDIS_PORT
+          value: "6379"
+        - name:  APP_VERSION
+          value: "v1.0"
+        
+        # ═════════════════════════════════════════════════
+        # VOLUME MOUNT:  SQLite database storage
+        # /app/data = kjer Flask shranjuje tasks.db
+        # ═════════════════════════════════════════════════
+        volumeMounts:
+        - name:  todo-data
+          mountPath: /app/data
+        
+        # ═════════════════════════════════════════════════
+        # RESOURCE LIMITS
+        # ZAKAJ: Preprečimo resource starvation
+        # 
+        # requests:  "Garantiraj mi vsaj toliko"
+        #   K8s ne bo schedulal poda če node nima 128Mi RAM free
+        # 
+        # limits: "Nikoli več od tega"
+        #   Če pod preseže 256Mi RAM, ga K8s ubije (OOMKilled)
+        # ═════════════════════════════════════════════════
+        resources: 
+          requests:
+            memory:  "128Mi"
+            cpu:  "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        
+        # ═════════════════════════════════════════════════
+        # SECURITY CONTEXT (CONTAINER level)
+        # 
+        # allowPrivilegeEscalation:  false
+        #   = Ne dovoli da proces dobi več privilegijev
+        #   (prepreči exploit-e ki poskušajo dobit root)
+        # 
+        # readOnlyRootFilesystem: false
+        #   = Dovolimo pisanje (Flask potrebuje /app/data)
+        #   Idealno bi bilo true, ampak tedaj potrebujemo emptyDir za /tmp
+        # ═════════════════════════════════════════════════
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+        
+        # ═════════════════════════════════════════════════════════════
+        # READINESS PROBE
+        # KAJ: "Ali je pod pripravljen sprejemat promet?"
+        # ZAKAJ: Med startupom ali deploymentom ne pošiljamo prometa 
+        #        na pod ki še ni ready! 
+        # 
+        # httpGet /health:   Tvoja Flask app mora imeti health endpoint! 
+        #   (Če nimaš /health, spremeni na path:  /)
+        # 
+        # PARAMETRI EXPLAINED:
+        # initialDelaySeconds: 10  = Počakaj 10s po container startu
+        #   ZAKAJ 10s:  Flask se zažene hitro (~3s), ampak potrebuje
+        #              čas za DB init in Redis connection
+        # 
+        # periodSeconds: 5  = Preveri vsakih 5 sekund
+        #   ZAKAJ 5s: Hočemo hitro reakcijo med rolling updates
+        # 
+        # timeoutSeconds: 3  = HTTP request mora odgovoriti v 3s
+        #   ZAKAJ 3s: Flask app je hitra, če ne odgovori v 3s, nekaj je narobe
+        # 
+        # failureThreshold: 2  = Po 2 failih (5s×2=10s) je pod "not ready"
+        #   ZAKAJ 2: Toleriramo 1 transient failure, 2nd fail = resna težava
+        # 
+        # successThreshold: 1  = 1 uspešen check = pod je ready
+        #   (Default je vedno 1 za readiness)
+        # ═════════════════════════════════════════════════════════════
+        readinessProbe:
+          httpGet:
+            path: /health  # SPREMENI na "/" če nimaš /health endpointa! 
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 2
+        
+        # ═════════════════════════════════════════════════════════════
+        # LIVENESS PROBE
+        # KAJ: "Ali je pod še vedno živ?"
+        # ZAKAJ: Če Flask app zamrzne/crashne, ga K8s restartta
+        # 
+        # PARAMETRI EXPLAINED:
+        # initialDelaySeconds: 30  = Počakaj 30s po container startu
+        #   ZAKAJ 30s:  Daljši kot readiness!  Ne želimo da liveness
+        #              ubije pod med startupom.  Startup probe ga zaščiti.
+        # 
+        # periodSeconds: 10  = Preveri vsakih 10 sekund
+        #   ZAKAJ 10s: Manj pogosto kot readiness (manjša obremenitev)
+        # 
+        # timeoutSeconds: 5  = HTTP request mora odgovoriti v 5s
+        #   ZAKAJ 5s:  Več časa kot readiness - pod je morda pod load
+        # 
+        # failureThreshold: 3  = Po 3 failih (10s×3=30s) = RESTART POD
+        #   ZAKAJ 3: Graceful - toleriramo kratke težave
+        #            Če app ne odgovori 30s, je resnično mrtev
+        # ═════════════════════════════════════════════════════════════
+        livenessProbe: 
+          httpGet:
+            path: /health  # SPREMENI na "/" če nimaš /health endpointa!
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # ═════════════════════════════════════════════════════════════
+        # STARTUP PROBE
+        # KAJ: "Ali se je pod uspešno zagnal?"
+        # ZAKAJ:  Nekateri containerji se počasi zaganjajo (npr. Java apps)
+        #        Startup probe zaščiti pod da ga liveness ne ubije med startupom
+        # 
+        # KAKO DELA: 
+        # - Ko pod starta, liveness in readiness sta DISABLED
+        # - Samo startup probe teče
+        # - Ko startup probe uspe, se aktivirata liveness+readiness
+        # 
+        # PARAMETRI: 
+        # initialDelaySeconds:  0  = Začni checkat takoj
+        # periodSeconds: 5        = Vsakih 5s
+        # failureThreshold: 30    = MAX 30 failov = 30×5s = 150 sekund
+        # 
+        # ZAKAJ 150s MAX: 
+        #   - Flask app se zažene v ~5s (običajno)
+        #   - Ampak v slow environmentih (malo RAM) lahko traja več
+        #   - 150s je dovolj za 99% primerov
+        #   - Po 150s če še ni ready = nekaj je hudo narobe
+        # ═════════════════════════════════════════════════════════════
+        startupProbe:
+          httpGet:
+            path: /health  # SPREMENI na "/" če nimaš /health endpointa! 
+            port: 5000
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 30
+      
+      # ═════════════════════════════════════════════════════
+      # VOLUMES:   Povezava med PVC in pod
+      # ═════════════════════════════════════════════════════
+      volumes:
+      - name:  todo-data
+        persistentVolumeClaim:
+          claimName: todo-web-pvc
+
+---
+# ═══════════════════════════════════════════════════════════
+# SERVICE:  Network endpoint za Web podi
+# 
+# KAJ: ClusterIP service (internal)
+# ZAKAJ: Ingress bo forwardal promet na ta service,
+#        service pa load-balanca med 3 web podi
+# 
+# selector:  app=todo-web = promet gre na pode z tem labelom
+# port: 80              = Service port (standardni HTTP)
+# targetPort: 5000      = Flask app port na podu
+# ═══════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-web
+  namespace: todo-app
+spec:
+  selector:
+    app: todo-web
+  ports:
+  - port: 80
+    targetPort:  5000
+  type: ClusterIP

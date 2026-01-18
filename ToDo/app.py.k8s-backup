@@ -1,4 +1,4 @@
-from flask import jsonify, Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect
 import sqlite3
 import redis
 import json
@@ -26,18 +26,6 @@ def init_db():
     conn.close()   # zapri povezavo
 
 # Glavna stran aplikacije
-# Kubernetes health check endpoint
-@app.route("/health")
-def health():
-    """Health check for K8s probes"""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.close()
-        r.ping()
-        return jsonify({"status": "healthy", "version":  os.getenv("APP_VERSION", "v1.0")}), 200
-    except Exception as e:
-        return jsonify({"status": "unhealthy", "error": str(e)}), 503
-
 @app.route('/')
 def index():
     # Poskusimo pridobiti naloge iz Redis cache-a
@@ -58,18 +46,6 @@ def index():
     return render_template('index.html', tasks=tasks)
 
 # Dodajanje nove naloge
-# Kubernetes health check endpoint
-@app.route("/health")
-def health():
-    """Health check for K8s probes"""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.close()
-        r.ping()
-        return jsonify({"status": "healthy", "version":  os.getenv("APP_VERSION", "v1.0")}), 200
-    except Exception as e:
-        return jsonify({"status": "unhealthy", "error": str(e)}), 503
-
 @app.route('/add', methods=['POST'])
 def add():
     task = request.form['task']  # preberi nalogo iz forme
@@ -84,18 +60,6 @@ def add():
     return redirect('/')  # preusmeri nazaj na glavno stran
 
 # Brisanje naloge po id
-# Kubernetes health check endpoint
-@app.route("/health")
-def health():
-    """Health check for K8s probes"""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.close()
-        r.ping()
-        return jsonify({"status": "healthy", "version":  os.getenv("APP_VERSION", "v1.0")}), 200
-    except Exception as e:
-        return jsonify({"status": "unhealthy", "error": str(e)}), 503
-
 @app.route('/delete/<int:id>')
 def delete(id):
     conn = sqlite3.connect(DB_PATH)
