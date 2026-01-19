@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-web-green      # ← GREEN ime
+  namespace: todo-app
+  labels:
+    app: todo-web
+    version: green          # ← GREEN label
+spec:
+  replicas:  3
+  selector:
+    matchLabels:
+      app:  todo-web
+      version: green        # ← GREEN selector
+  strategy:
+    rollingUpdate: 
+      maxSurge: 1
+      maxUnavailable:  0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: todo-web
+        version: green      # ← GREEN pod label
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: web
+        image: ghcr.io/hodzaarmen/todo-web:latest
+        imagePullPolicy: Always
+        ports: 
+        - containerPort: 5000
+          name: http
+        env:
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: APP_VERSION
+          value: "v2.0-GREEN"  # ← Drugačna verzija! 
+        volumeMounts:
+        - name: todo-data
+          mountPath: /app/data
+        resources: 
+          requests: 
+            memory: "128Mi"
+            cpu: "100m"
+          limits: 
+            memory: "256Mi"
+            cpu: "200m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        livenessProbe: 
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds:  30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold:  3
+        startupProbe:
+          httpGet:
+            path: /health
+            port:  5000
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 30
+      volumes: 
+      - name: todo-data
+        persistentVolumeClaim:
+          claimName: todo-web-pvc

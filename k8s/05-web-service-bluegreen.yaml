@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-web
+  namespace: todo-app
+  labels:  
+    app: todo-web
+spec:
+  selector:
+    app: todo-web
+    version:  blue    # ← Ta label določa routing! 
+  ports: 
+  - port: 80
+    targetPort: 5000
+  type: ClusterIP
