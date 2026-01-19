@@ -335,7 +335,7 @@ spec:
 **Pomembno:** Vsi 3 web podi mountajo **isti** PVC!  To deluje ker: 
 - SQLite DB je na istem node-u
 - Vsi podi tečejo na istem node-u (MicroK8s single-node cluster)
-- **V multi-node clusteru bi potrebovali ReadWriteMany ali external DB! **
+- **V multi-node clusteru bi potrebovali ReadWriteMany ali external DB!**
 
 ---
 
@@ -675,7 +675,7 @@ echo "🌐 Access:  https://todo.88.200.24.49.nip.io"
 
 ![Deployment Status](screenshots/05-deployment-status.png)
 
-*Slika 5: Kompletni deployment - vsi resursi running.  Opazimo: *
+*Slika 5: Kompletni deployment - vsi resursi running.  Opazimo:*
 - *3 web pods (High Availability)*
 - *1 redis pod*
 - *2 services (ClusterIP)*
@@ -765,7 +765,7 @@ done
 
 ![Rolling Update Complete](screenshots/03-rolling-update-complete.png)
 
-*Slika 3: Rolling update uspešno končan. Kubernetes je: *
+*Slika 3: Rolling update uspešno končan. Kubernetes je:*
 1. *Ustvaril 1 nov pod (v4.0)*
 2. *Počakal na readiness probe*
 3. *Ubil 1 star pod*
@@ -887,7 +887,7 @@ kubectl apply -f k8s/05-web-deployment-green.yaml
 
 ![Blue/Green Parallel](screenshots/07-bluegreen-parallel.png)
 
-*Slika 7: Blue/Green parallel deployment: *
+*Slika 7: Blue/Green parallel deployment:*
 - *6 podov skupaj (3 blue + 3 green)*
 - *Service selector: version=blue (promet gre samo na blue)*
 - *curl vrne "v1.0-BLUE" (green podi tečejo, ampak NE dobijo prometa)*

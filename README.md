@@ -15,3 +15,7 @@ Dobrodošli v projektu, kjer smo implementirali različne DevOps naloge za našo
 2. **Druga naloga – Automating deployment of application stacks**
    - Namen: avtomatizirana postavitev aplikacijskega sklada z Docker Compose, multi-stage Docker slikami in CI/CD.
    - [Poglej podrobnosti](./README2.md)
+
+3. **Tretja naloga – K8s**
+   - Namen: avtomatizacija upravljanja aplikacij z uporabo Kubernetes (K8s), vključno z uporabo namespace-ov, PVC-jev, deploymentov in ingressov.
+   - [Poglej podrobnosti](./README3.md)
